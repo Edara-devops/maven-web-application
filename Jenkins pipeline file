@@ -1,0 +1,29 @@
+node{
+    
+def mavenHome = tool name: "maven3.8.6"
+properties([buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5')), [$class: 'JobLocalConfiguration', changeReasonComment: ''], pipelineTriggers([pollSCM('* * * * *')])])
+
+
+stage('checkoutcode'){
+git branch: 'development', credentialsId: '9cd38550-cf7f-4f0d-a9f0-5fc232fc30bb', url: 'https://github.com/Edara-devops/maven-web-application.git'
+}
+
+stage('Build'){
+sh "${mavenHome}/bin/mvn clean package"
+}
+
+stage('ExecuteSonarQubeReport'){
+sh "${mavenHome}/bin/mvn clean sonar:sonar"
+}
+
+stage('UploadArtifactsIntoArtifactoryRepository'){
+sh "${mavenHome}/bin/mvn clean deploy"
+}
+
+stage('DeployAppIntoTomcatserver'){
+sshagent(['2a0af3ac-d8d2-41db-9af9-ab896472a500']) {
+sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.38.128:/opt/apache-tomcat-9.0.65/webapps/"
+}
+}
+
+}
