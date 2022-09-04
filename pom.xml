@@ -105,6 +105,11 @@
 	      <name>Mithun Technologies Snapshot Nexus Repository </name>
 	      <url>http://172.31.42.31:9980/devopsnexustechnologies/repository/wallmart-snapshot/</url>
 	    </snapshotRepository>
+	<server>
+		<id>nexus</id>
+		<username>admin</username>
+		<password>admin123</password>
+	</server>
 	    
 	</distributionManagement>
 	
