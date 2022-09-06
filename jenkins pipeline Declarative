@@ -1,0 +1,91 @@
+
+pipeline{
+agent any
+
+tools{
+maven 'maven3.8.6'
+}
+
+options {
+  timestamps()
+   buildDiscarder(logRotator(artifactDaysToKeepStr: '', artifactNumToKeepStr: '5', daysToKeepStr: '', numToKeepStr: '5'))
+}
+
+triggers {
+  pollSCM('* * * * *')
+  //cron('* * * * *')
+}
+
+stages{
+
+stage('checkoutcode'){
+steps{
+   slackNotifications('STARTED') 
+git branch: 'development', credentialsId: '9cd38550-cf7f-4f0d-a9f0-5fc232fc30bb', url: 'https://github.com/Edara-devops/maven-web-application.git'
+}
+}
+
+stage('Build'){
+steps{
+sh "mvn clean package"
+}
+}
+
+stage('ExecuteSonarQubeReport'){
+steps{
+sh "mvn clean sonar:sonar"
+}
+}
+
+stage('UploadArtifactIntoArtifactoryRepository'){
+steps{
+sh "mvn clean deploy"
+}
+}
+
+stage('DeployAppIntoTomcatserver'){
+steps{
+sshagent(['2a0af3ac-d8d2-41db-9af9-ab896472a500']) {
+sh "scp -o StrictHostKeyChecking=no target/maven-web-application.war ec2-user@172.31.38.128:/opt/apache-tomcat-9.0.65/webapps/"
+}
+}
+}
+
+}//stages closing
+
+post {
+  success {
+    slackNotifications(currentBuild.result)
+  }
+  failure {
+    slackNotifications(currentBuild.result)
+  }
+}
+}//pipeline closing
+//code snippet for slack notifications
+
+def slackNotifications(String buildStatus = 'STARTED') {
+  // build status of null means successful
+  buildStatus =  buildStatus ?: 'SUCCESS'
+
+  // Default values
+  def colorName = 'RED'
+  def colorCode = '#FF0000'
+  def subject = "${buildStatus}: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'"
+  def summary = "${subject} (${env.BUILD_URL})"
+
+  // Override default values based on build status
+  if (buildStatus == 'STARTED') {
+    color = 'YELLOW'
+    colorCode = '#FFFF00'
+  } else if (buildStatus == 'SUCCESS') {
+    color = 'GREEN'
+    colorCode = '#00FF00'
+  } else {
+    color = 'RED'
+    colorCode = '#FF0000'
+  }
+
+  // Send notifications
+  slackSend (color: colorCode, message: summary, channel: "walmart")
+}
